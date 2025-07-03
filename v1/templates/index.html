@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marine Debris Detection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-cover bg-center h-screen flex justify-center items-center" style="background-image: url('{{ url_for('static', filename='bg.jpg') }}');">
+
+    <div class="bg-white shadow-xl rounded-lg p-8 w-full max-w-lg text-center border border-gray-300">
+        <h1 class="text-3xl font-bold text-gray-800">🌊 Marine Debris Detection</h1>
+        <p class="text-gray-600 text-lg mt-2">Upload a segmented satellite image (.tif) to classify debris.</p>
+
+        <form id="imageForm" enctype="multipart/form-data" class="mt-6">
+            <label for="imageInput" class="block bg-gray-200 text-gray-700 border border-gray-400 px-6 py-3 rounded-lg cursor-pointer hover:bg-gray-300 transition text-lg font-semibold">
+                📂 Choose File
+            </label>
+            <input type="file" id="imageInput" name="image" accept=".tif" required hidden>
+            <span id="fileName" class="block text-lg text-gray-500 mt-2">No file chosen</span>
+
+            <button type="submit" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg py-3 rounded-lg shadow-md transition">
+                🔍 Predict
+            </button>
+        </form>
+
+        <div id="loading" class="hidden mt-4 text-blue-600 font-semibold text-lg">
+            ⏳ Processing... Please wait.
+        </div>
+
+        <div id="result" class="mt-4 text-lg text-gray-800 font-semibold"></div>
+    </div>
+
+    <script>
+        document.getElementById("imageForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData();
+            const imageInput = document.getElementById("imageInput");
+            const resultDiv = document.getElementById("result");
+            const loadingDiv = document.getElementById("loading");
+            const fileNameDisplay = document.getElementById("fileName");
+
+            if (imageInput.files.length === 0) {
+                alert("❌ Please select an image file.");
+                return;
+            }
+
+            const file = imageInput.files[0];
+
+            // ✅ Restrict non-.tif files
+            if (!file.name.toLowerCase().endsWith(".tif")) {
+                alert("❌ Only segmented satellite images (.tif) are allowed.");
+                imageInput.value = ""; // Clear selection
+                fileNameDisplay.textContent = "No file chosen";
+                return;
+            }
+
+            formData.append("image", file);
+            fileNameDisplay.textContent = file.name;
+
+            loadingDiv.classList.remove("hidden");
+            resultDiv.innerHTML = "";
+
+            try {
+                const response = await fetch("/predict", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    throw new Error("Error in response: " + response.statusText);
+                }
+
+                const data = await response.json();
+                loadingDiv.classList.add("hidden");
+
+                if (data.error) {
+                    resultDiv.innerHTML = `<p class='text-red-600'>❌ ${data.error}</p>`;
+                } else {
+                    resultDiv.innerHTML = `
+                        <h2 class="text-xl font-bold text-gray-900">🚀 Prediction Result</h2>
+                        <p class="mt-2"><strong>🛠️ Predicted Class:</strong> ${data.predicted_class}</p>
+                        <p><strong>🔍 Classification:</strong> ${data.classification}</p>
+                    `;
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                loadingDiv.classList.add("hidden");
+                resultDiv.innerHTML = "<p class='text-red-600'>❌ Error during prediction. Please try again.</p>";
+            }
+        });
+
+        /* Show file name when selected */
+        document.getElementById("imageInput").addEventListener("change", function () {
+            const fileName = this.files[0] ? this.files[0].name : "No file chosen";
+            document.getElementById("fileName").textContent = fileName;
+        });
+    </script>
+
+</body>
+</html>
